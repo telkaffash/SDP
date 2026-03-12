@@ -1,0 +1,36 @@
+:root {
+  --bg: #848a5c;
+  --panel: linear-gradient(135deg, #6f7b4b 0%, #8c9b5e 38%, #b79a56 72%, #d2bf8a 100%);
+  --topbar: linear-gradient(90deg, #55613a 0%, #7b8750 45%, #b08d46 100%);
+  --border: #b08d46;
+
+  --text: #2f2a22;
+  --muted: #6d6557;
+
+  --btn-bg: rgba(84, 90, 52, 0.14);
+  --btn-hover: rgba(176, 141, 70, 0.20);
+  --terminal-bg: rgba(255, 250, 240, 0.55);
+
+  --shadow: 0 10px 30px rgba(70, 60, 35, 0.14);
+
+  --font-ui: "Calibri", Times, Georgia, serif;
+}
+
+/* base text */
+body {
+  font-weight: 500;
+}
+
+/* headings + titles */
+h1, h2 {
+  font-weight: 700;
+}
+
+h3, .title, .topbar {
+  font-weight: 600;
+}
+
+/* buttons + labels */
+button, .btn, label {
+  font-weight: 600;
+}

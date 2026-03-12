@@ -127,7 +127,7 @@ function closeConnectModal(){
   document.getElementById("connectModal").classList.add("hidden");
 }
 
-/* ================= BACKEND CONNECTION ================= */
+/* --- BACKEND CONNECTION --- */
 
 let backendURL="";
 let connected=false;
@@ -141,7 +141,7 @@ el.style.color=color;
 }
 }
 
-/* -------- CONNECT -------- */
+/* --- CONNECT --- */
 async function connectClient(){
 
 const input=document.getElementById("serverInput").value.trim();
@@ -177,7 +177,7 @@ log("[ERR] "+e.message);
 
 }
 
-/* -------- DISCONNECT -------- */
+/* --- DISCONNECT --- */
 function disconnectClient(){
 
 connected=false;
@@ -190,7 +190,7 @@ log("[INFO] Disconnected");
 
 }
 
-/* -------- HEARTBEAT -------- */
+/* --- PING --- */
 function startHeartbeat(){
 
 stopHeartbeat(); // safety
@@ -226,7 +226,7 @@ clearInterval(heartbeatTimer);
 heartbeatTimer=null;
 }
 }
-/* ================= COMMAND SEND ================= */
+/* --- COMMAND SEND --- */
 
 async function sendCommand(){
 
