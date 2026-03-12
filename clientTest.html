@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SDP Control Console (Clean)</title>
+
+<style>
+body{
+  margin:0;
+  font-family:Segoe UI,Arial;
+  background:#111;
+  color:#eee;
+}
+
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  padding:10px;
+  background:#1b1b1b;
+  border-bottom:1px solid #333;
+}
+
+.btn{
+  background:#222;
+  border:1px solid #444;
+  color:#eee;
+  padding:6px 10px;
+  cursor:pointer;
+}
+
+.panel{
+  padding:12px;
+}
+
+.terminal{
+  background:#000;
+  height:200px;
+  overflow:auto;
+  padding:8px;
+  border:1px solid #333;
+  font-family:monospace;
+  margin-bottom:6px;
+}
+
+input{
+  background:#111;
+  border:1px solid #444;
+  color:white;
+  padding:6px;
+}
+
+.hidden{display:none;}
+
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.6);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.modal-card{
+  background:#1e1e1e;
+  padding:20px;
+  border:1px solid #444;
+  width:320px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ================= TOP BAR ================= -->
+<div class="topbar">
+<div>SDP Host Console</div>
+
+<div>
+<button class="btn" onclick="openConnectModal()">Connect</button>
+<button class="btn" onclick="disconnectClient()">Disconnect</button>
+</div>
+</div>
+
+<!-- ================= TERMINAL ================= -->
+<div class="panel">
+<div id="terminal" class="terminal"></div>
+
+<div style="display:flex; gap:6px;">
+<input id="cmdInput" placeholder="Type command">
+<button class="btn" onclick="sendCommand()">Send</button>
+</div>
+</div>
+
+<!-- ================= CONNECT MODAL ================= -->
+<div id="connectModal" class="modal hidden">
+<div class="modal-card">
+
+<h3>Connect to Drone</h3>
+
+<input id="serverInput" placeholder="http://127.0.0.1:5000">
+
+<div style="margin-top:10px; display:flex; gap:6px;">
+<button class="btn" onclick="connectClient()">Connect</button>
+<button class="btn" onclick="closeConnectModal()">Close</button>
+</div>
+
+<div id="connectStatus" style="margin-top:8px;"></div>
+
+</div>
+</div>
+
+<script>
+
+/* ================= TERMINAL ================= */
+function log(msg){
+  const t=document.getElementById("terminal");
+  t.innerHTML+=msg+"<br>";
+  t.scrollTop=t.scrollHeight;
+}
+
+/* ================= CONNECT MODAL ================= */
+function openConnectModal(){
+  document.getElementById("connectModal").classList.remove("hidden");
+}
+
+function closeConnectModal(){
+  document.getElementById("connectModal").classList.add("hidden");
+}
+
+/* ================= BACKEND CONNECTION ================= */
+
+let backendURL="";
+let connected=false;
+let heartbeatTimer=null;
+
+function setStatus(text,color="white"){
+const el=document.getElementById("connectStatus");
+if(el){
+el.innerText=text;
+el.style.color=color;
+}
+}
+
+/* -------- CONNECT -------- */
+async function connectClient(){
+
+const input=document.getElementById("serverInput").value.trim();
+
+if(!input){
+setStatus("Enter address","orange");
+return;
+}
+
+try{
+
+setStatus("Connecting...","orange");
+
+const res=await fetch(input+"/api/ping");
+
+if(!res.ok) throw new Error("Server not reachable");
+
+backendURL=input;
+connected=true;
+
+setStatus("Connected","lightgreen");
+log("[OK] Connected to "+input);
+
+startHeartbeat();
+closeConnectModal();
+
+}catch(e){
+
+setStatus("Connection failed","red");
+log("[ERR] "+e.message);
+
+}
+
+}
+
+/* -------- DISCONNECT -------- */
+function disconnectClient(){
+
+connected=false;
+backendURL="";
+
+stopHeartbeat();
+
+setStatus("Disconnected","gray");
+log("[INFO] Disconnected");
+
+}
+
+/* -------- HEARTBEAT -------- */
+function startHeartbeat(){
+
+stopHeartbeat(); // safety
+
+heartbeatTimer=setInterval(async ()=>{
+
+if(!connected || !backendURL) return;
+
+try{
+
+const res=await fetch(backendURL+"/api/ping",{cache:"no-store"});
+
+if(!res.ok) throw new Error();
+
+setStatus("Connected","lightgreen");
+
+}catch{
+
+setStatus("Lost connection","red");
+log("[ERR] Connection lost");
+
+disconnectClient();
+
+}
+
+},2000);
+
+}
+
+function stopHeartbeat(){
+if(heartbeatTimer){
+clearInterval(heartbeatTimer);
+heartbeatTimer=null;
+}
+}
+/* ================= COMMAND SEND ================= */
+
+async function sendCommand(){
+
+const input=document.getElementById("cmdInput");
+const cmd=input.value.trim();
+
+if(!cmd) return;
+
+log("> "+cmd);
+input.value="";
+
+if(!connected){
+log("[ERR] Not connected");
+return;
+}
+
+try{
+
+const res=await fetch(backendURL+"/api/command",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({command:cmd})
+});
+
+const data=await res.json();
+
+log("[DRONE] "+(data.reply||"OK"));
+
+}catch(e){
+
+log("[ERR] "+e.message);
+
+}
+
+}
+
+document.getElementById("cmdInput")
+.addEventListener("keydown",e=>{
+if(e.key==="Enter") sendCommand();
+});
+
+</script>
+
+</body>
+</html>
+
+
+
+<!-- http://127.0.0.1:5000 -->

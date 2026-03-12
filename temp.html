@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SDP Host Control Console</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" href="css/base.css">
+  <link id="theme" rel="stylesheet" href="css/theme-dark.css">
+</head>
+
+<body>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="app-icon">𒅒</div>
+    <div class="title">Autonomous Date Pollination System - User Workstation</div>
+  </div>
+
+  <div class="topbar-right">
+    <!-- Farm -->
+    <div class="dropdown">
+      <button class="btn dropdown-toggle" type="button">
+        Farm: <span id="farmLabel">ARS_farm_uncallibrated</span>
+      </button>
+      <div class="dropdown-menu" id="farmMenu"></div>
+    </div>
+
+    <!-- Source -->
+    <div class="dropdown">
+      <button class="btn dropdown-toggle" type="button">
+        Source: <span id="sourceLabel">None</span>
+      </button>
+
+      <div class="dropdown-menu">
+        <div class="menu-group">Replay</div>
+        <button type="button" onclick="openScenarioFile()">Load scenario…</button>
+
+        <div class="menu-group">Live</div>
+        <button type="button" onclick="openConnectModal()">Connect client…</button>
+
+        <div class="menu-group">Status</div>
+        <button class="disabled" type="button" id="sourceStatusItem">
+          Not connected
+        </button>
+      </div>
+    </div>
+
+    <input id="scenarioFileInput" type="file" accept=".json,.jsonl,.txt" class="hidden" />
+
+    <!-- Theme -->
+    <div class="dropdown">
+      <button class="btn dropdown-toggle" type="button">
+        Theme: <span id="themeLabel">Dark (Default)</span>
+      </button>
+      <div class="dropdown-menu">
+        <button type="button" onclick="setTheme('theme-dark.css','Dark')">Dark</button>
+        <button type="button" onclick="setTheme('theme-light.css','Light')">Light</button>
+        <button type="button" onclick="setTheme('theme-3.css','Dark-2')">Dark-2</button>
+        <button type="button" onclick="setTheme('theme-4.css','Light-2')">Light-2</button>
+      </div>
+    </div>
+
+    <!-- Playback controls -->
+    <button class="btn" type="button" onclick="startScenario()">Start</button>
+    <button class="btn" type="button" onclick="pauseScenario()">Pause</button>
+    <button class="btn" type="button" onclick="stopScenario()">Stop</button>
+  </div>
+</header>
+
+
+<main class="layout">
+
+  <!-- MAP PANEL (RESTORED) -->
+  <section class="panel panel-map">
+    <div class="panel-header">Map View</div>
+
+    <div class="panel-body">
+      <div class="map-stage" id="mapStage">
+        <img id="farmMapImg" class="farm-map-img hidden" alt="Farm map" draggable="false" />
+        <canvas id="mapOverlay"></canvas>
+        <div id="mapEmptyHint" class="map-placeholder">No farm image loaded yet</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT COLUMN -->
+  <section class="right-column">
+
+    <div class="panel">
+      <div class="panel-header">Camera View</div>
+      <div class="panel-body">
+        <div class="camera-placeholder">Camera disabled</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">Vitals</div>
+      <div class="panel-body vitals">
+        <div class="stat">Signal/Ping<br><strong>N/A</strong></div>
+        <div class="stat">Tank Level (%)<br><strong>N/A</strong></div>
+        <div class="stat">Pollen Viability<br><strong>N/A</strong></div>
+        <div class="stat">Battery (%)<br><strong>N/A</strong></div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- TERMINAL -->
+  <section class="panel panel-terminal">
+    <div class="panel-header">Terminal</div>
+    <div class="panel-body">
+      <div id="terminalLog" class="terminal-log"></div>
+
+      <div class="terminal-input">
+        <input id="terminalInput" placeholder="Type command…" />
+        <button class="btn" type="button" onclick="sendCommand()">Send</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============== ADD FARM MODAL ============== -->
+<div id="farmModal" class="modal hidden" aria-hidden="true">
+  <div class="modal-backdrop" onclick="closeFarmModal()"></div>
+
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="Add Farm">
+    <div class="modal-header">
+      <div class="modal-title">Add Farm</div>
+      <button class="btn" onclick="closeFarmModal()">Close</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-row">
+        <label class="label">Farm name</label>
+        <input id="farmNameInput" class="input" placeholder="e.g., ARS_farm_01" />
+      </div>
+
+      <div class="form-row">
+        <label class="label">Farm image</label>
+        <input id="farmImageInput" type="file" accept="image/*" />
+      </div>
+
+      <div class="calib-grid">
+        <div class="calib-left">
+          <div class="label-row">
+          </div>
+
+          <div id="calibCanvasWrap" class="calib-canvas-wrap">
+            <canvas id="calibCanvas"></canvas>
+            <div id="calibOverlayHint" class="overlay-hint">Upload an image to start calibration</div>
+          </div>
+
+          <div class="calib-actions">
+            <button class="btn" type="button" onclick="undoCalibPoint()">Undo</button>
+            <button class="btn" type="button" onclick="clearCalib()">Clear</button>
+          </div>
+        </div>
+
+        <div class="calib-right">
+          <div class="label-row">
+            <span class="label">Points</span>
+          </div>
+
+          <div id="pointsList" class="points-list"></div>
+
+
+          <div class="save-row">
+            <button class="btn" type="button" onclick="saveFarm()">Save Farm</button>
+          </div>
+
+          <div id="farmError" class="error"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+let scenario = { name: null, events: [] };
+let scenarioLoaded = false;
+let playback = { i: 0, timer: null, running: false, paused: false };
+
+
+/* ================= DROPDOWNS ================= */
+document.querySelectorAll('.dropdown-toggle').forEach(btn => {
+  btn.onclick = e => {
+    e.stopPropagation();
+    closeDropdowns();
+    btn.parentElement.classList.toggle('open');
+  };
+});
+document.addEventListener('click', closeDropdowns);
+
+function closeDropdowns() {
+  document.querySelectorAll('.dropdown.open')
+    .forEach(d => d.classList.remove('open'));
+}
+
+/* ================= TERMINAL ================= */
+function log(msg) {
+  const el = document.getElementById('terminalLog');
+  if (!el) return;
+  el.innerHTML += msg + "<br>";
+  el.scrollTop = el.scrollHeight;
+}
+
+/* ================= FARM / SOURCE ================= */
+function selectFarm(name) {
+  document.getElementById('farmLabel').innerText = name;
+  log(`[INFO] Farm selected: ${name}`);
+}
+function selectSource(src) {
+  document.getElementById('sourceLabel').innerText = src;
+  log(`[INFO] Source set to: ${src}`);
+}
+
+/* ================= THEME ================= */
+const themeLink = document.getElementById("theme");
+function setTheme(file, label) {
+  themeLink.href = "css/" + file;
+  document.getElementById("themeLabel").innerText = label;
+  localStorage.setItem("ui-theme", file);
+  localStorage.setItem("ui-theme-label", label);
+}
+(function restoreTheme() {
+  const saved = localStorage.getItem("ui-theme");
+  const label = localStorage.getItem("ui-theme-label");
+  if (saved) themeLink.href = "css/" + saved;
+  if (label) document.getElementById("themeLabel").innerText = label;
+})();
+
+/* ================= MODAL OPEN/CLOSE ================= */
+function openFarmModal() {
+  const m = document.getElementById("farmModal");
+  if (!m) return console.error("farmModal not found");
+  m.classList.remove("hidden");
+  m.setAttribute("aria-hidden", "false");
+  refreshCanvasAfterModalOpen();
+}
+function closeFarmModal() {
+  const m = document.getElementById("farmModal");
+  if (!m) return console.error("farmModal not found");
+  m.classList.add("hidden");
+  m.setAttribute("aria-hidden", "true");
+}
+
+
+/* ================= SIMULATIONS ==========================*/
+
+
+/* ================= CANVAS IMAGE (FIXED) ================= */
+const calibCanvas = document.getElementById("calibCanvas");
+const calibWrap   = document.getElementById("calibCanvasWrap");
+const overlayHint = document.getElementById("calibOverlayHint");
+const farmImageInput = document.getElementById("farmImageInput");
+const ctx = calibCanvas.getContext("2d");
+
+let calibImg = null;        // HTMLImageElement
+let calibImgDataURL = null;
+
+function setCanvasSize(w, h) {
+  calibCanvas.width = w;
+  calibCanvas.height = h;
+  calibCanvas.style.width = w + "px";
+  calibCanvas.style.height = h + "px";
+}
+
+function fitCanvasToWrap(img) {
+  const wrapW = (calibWrap && calibWrap.clientWidth) ? calibWrap.clientWidth : 900;
+
+  const iw = img.naturalWidth;
+  const ih = img.naturalHeight;
+
+  if (!iw || !ih) {
+    setCanvasSize(900, 450);
+    return;
+  }
+
+  const scale = Math.min(1, wrapW / iw);
+  const w = Math.max(10, Math.round(iw * scale));
+  const h = Math.max(10, Math.round(ih * scale));
+  setCanvasSize(w, h);
+}
+
+function drawCalibration() {
+  ctx.clearRect(0, 0, calibCanvas.width, calibCanvas.height);
+  ctx.fillStyle = "rgba(0,0,0,0.10)";
+  ctx.fillRect(0, 0, calibCanvas.width, calibCanvas.height);
+  if (!calibImg) return;
+  ctx.drawImage(calibImg, 0, 0, calibCanvas.width, calibCanvas.height);
+}
+
+farmImageInput.addEventListener("change", (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    calibImgDataURL = reader.result;
+
+    const img = new Image();
+    img.onload = () => {
+      calibImg = img;
+      if (overlayHint) overlayHint.style.display = "none";
+      fitCanvasToWrap(img);
+      drawCalibration();
+      log("[OK] Calibration image loaded.");
+    };
+    img.onerror = () => {
+      console.error("Image failed to load");
+      log("[ERR] Image failed to load.");
+    };
+    img.src = calibImgDataURL;
+  };
+  reader.readAsDataURL(file);
+});
+
+function refreshCanvasAfterModalOpen() {
+  if (!calibImg) {
+    // ensure canvas is visible even before image loads
+    setCanvasSize(900, 450);
+    drawCalibration();
+    return;
+  }
+  setTimeout(() => {
+    fitCanvasToWrap(calibImg);
+    drawCalibration();
+  }, 50);
+}
+
+/* ================= CALIBRATION POINTS ================= */
+let calibPoints = []; // {x,y,lat,lon}
+let hoverIdx = -1;
+let dragIdx = -1;
+let dragOffset = { dx: 0, dy: 0 };
+
+const pointsListEl = document.getElementById("pointsList");
+
+function canvasToLocal(e) {
+  const rect = calibCanvas.getBoundingClientRect();
+  // Because we set canvas.style.width/height equal to canvas.width/height,
+  // local coords map 1:1. (If you change CSS later, we’ll adjust.)
+  const x = Math.round(e.clientX - rect.left);
+  const y = Math.round(e.clientY - rect.top);
+  return { x, y };
+}
+
+function drawPoints() {
+  if (!calibImg) return;
+
+  calibPoints.forEach((p, i) => {
+    // point dot
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = (i === hoverIdx) ? "#f59e0b" : "#569cd6";
+    ctx.fill();
+
+    // label
+    ctx.font = "12px Segoe UI, Arial";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(`#${i + 1}`, p.x + 10, p.y - 8);
+  });
+
+  // hover tooltip
+  if (hoverIdx >= 0) {
+    const p = calibPoints[hoverIdx];
+    const text = `#${hoverIdx + 1}  x:${p.x}  y:${p.y}`;
+    ctx.font = "12px Segoe UI, Arial";
+
+    const pad = 6;
+    const w = Math.ceil(ctx.measureText(text).width) + pad * 2;
+    const h = 22;
+    const tx = Math.min(p.x + 14, calibCanvas.width - w - 6);
+    const ty = Math.max(p.y - 30, 6);
+
+    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    ctx.fillRect(tx, ty, w, h);
+    ctx.strokeStyle = "rgba(255,255,255,0.25)";
+    ctx.strokeRect(tx, ty, w, h);
+
+    ctx.fillStyle = "#fff";
+    ctx.fillText(text, tx + pad, ty + 15);
+  }
+}
+
+function redrawAll() {
+  drawCalibration(); // draws image
+  drawPoints();      // draws points on top
+}
+
+function hitTestPoint(x, y) {
+  const r = 8; // pick radius
+  for (let i = calibPoints.length - 1; i >= 0; i--) {
+    const p = calibPoints[i];
+    const dx = x - p.x;
+    const dy = y - p.y;
+    if (dx * dx + dy * dy <= r * r) return i;
+  }
+  return -1;
+}
+
+function renderPointsList() {
+  pointsListEl.innerHTML = "";
+
+  if (calibPoints.length === 0) {
+    pointsListEl.innerHTML = `<div class="hint">Click on the image to add calibration points.</div>`;
+    return;
+  }
+
+  calibPoints.forEach((p, idx) => {
+    const row = document.createElement("div");
+    row.className = "point-row";
+    row.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <div><b>Point #${idx + 1}</b> <span class="hint">(pixel)</span></div>
+      </div>
+
+      <div class="point-grid">
+        <label class="hint">x</label>
+        <input class="input" data-i="${idx}" data-k="x" value="${p.x}">
+        <label class="hint">y</label>
+        <input class="input" data-i="${idx}" data-k="y" value="${p.y}">
+        <label class="hint">lat</label>
+        <input class="input" data-i="${idx}" data-k="lat" value="${p.lat ?? ""}" placeholder="25.123...">
+        <label class="hint">lon</label>
+        <input class="input" data-i="${idx}" data-k="lon" value="${p.lon ?? ""}" placeholder="51.234...">
+      </div>
+      <hr style="border:0; border-top:1px solid var(--border); margin:10px 0;">
+    `;
+
+    row.querySelectorAll("input").forEach(inp => {
+      inp.addEventListener("input", () => {
+        const i = Number(inp.dataset.i);
+        const k = inp.dataset.k;
+        let v = inp.value.trim();
+
+        if (k === "x" || k === "y") {
+          // force integer pixels
+          const n = Math.round(Number(v));
+          if (!Number.isFinite(n)) return;
+          calibPoints[i][k] = n;
+          redrawAll();
+        } else {
+          // lat/lon keep as string for now; we validate on save later
+          calibPoints[i][k] = v;
+        }
+      });
+    });
+
+    pointsListEl.appendChild(row);
+  });
+}
+
+/* -------- Canvas interactions -------- */
+calibCanvas.addEventListener("mousemove", (e) => {
+  if (!calibImg) return;
+  const { x, y } = canvasToLocal(e);
+
+  if (dragIdx >= 0) {
+    calibPoints[dragIdx].x = Math.max(0, Math.min(calibCanvas.width, x - dragOffset.dx));
+    calibPoints[dragIdx].y = Math.max(0, Math.min(calibCanvas.height, y - dragOffset.dy));
+    renderPointsList();
+    redrawAll();
+    return;
+  }
+
+  const idx = hitTestPoint(x, y);
+  if (idx !== hoverIdx) {
+    hoverIdx = idx;
+    redrawAll();
+  }
+});
+
+calibCanvas.addEventListener("mousedown", (e) => {
+  if (!calibImg) return;
+  const { x, y } = canvasToLocal(e);
+
+  const idx = hitTestPoint(x, y);
+  if (idx >= 0) {
+    dragIdx = idx;
+    dragOffset.dx = x - calibPoints[idx].x;
+    dragOffset.dy = y - calibPoints[idx].y;
+  }
+});
+
+window.addEventListener("mouseup", () => {
+  if (dragIdx >= 0) {
+    dragIdx = -1;
+    renderPointsList();
+    redrawAll();
+  }
+});
+
+calibCanvas.addEventListener("click", (e) => {
+  if (!calibImg) return;
+  // If dragging, ignore click add
+  if (dragIdx >= 0) return;
+
+  const { x, y } = canvasToLocal(e);
+  const onExisting = hitTestPoint(x, y);
+  if (onExisting >= 0) return; // clicking on a point doesn't add new
+
+  calibPoints.push({ x, y, lat: "", lon: "" });
+  hoverIdx = calibPoints.length - 1;
+  renderPointsList();
+  redrawAll();
+});
+
+/* -------- Buttons -------- */
+function undoCalibPoint() {
+  calibPoints.pop();
+  hoverIdx = -1;
+  renderPointsList();
+  redrawAll();
+}
+
+function clearCalib() {
+  calibPoints = [];
+  hoverIdx = -1;
+  renderPointsList();
+  redrawAll();
+}
+
+/* When image loads, ensure points UI is ready */
+(function initPointsUI() {
+  renderPointsList();
+})();
+
+
+/* ================= FARM STORAGE + DROPDOWN ================= */
+const FARM_KEY = "sdp.farms.v1";
+
+function loadFarms() {
+  try {
+    return JSON.parse(localStorage.getItem(FARM_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveFarms(farms) {
+  localStorage.setItem(FARM_KEY, JSON.stringify(farms));
+}
+
+function upsertFarm(farmObj) {
+  const farms = loadFarms();
+  const i = farms.findIndex(f => f.name === farmObj.name);
+  if (i >= 0) farms[i] = farmObj;
+  else farms.push(farmObj);
+  saveFarms(farms);
+  return farms;
+}
+
+function setFarmLabel(name) {
+  const el = document.getElementById("farmLabel");
+  if (el) el.innerText = name;
+}
+
+function renderFarmMenu() {
+  const menu = document.getElementById("farmMenu");
+  if (!menu) return;
+
+  const farms = loadFarms();
+
+  // Always keep ARS_farm_uncallibrated as a built-in option
+  const builtins = [{ name: "ARS_farm_uncallibrated", builtin: true }];
+
+  menu.innerHTML = "";
+
+  [...builtins, ...farms].forEach(f => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = f.name;
+    btn.onclick = () => {
+      selectFarm(f.name);
+
+      const saved = loadFarms().find(x => x.name === f.name);
+      if (saved) loadFarmIntoUI(f.name);
+
+      closeDropdowns(); // optional: auto close menu after click
+    };
+    menu.appendChild(btn);
+  });
+
+
+  const createBtn = document.createElement("button");
+  createBtn.type = "button";
+  createBtn.textContent = "Create new…";
+  createBtn.onclick = () => openFarmModal();
+  menu.appendChild(createBtn);
+}
+
+/* ================= VALIDATION + SAVE FARM ================= */
+function showFarmError(msg) {
+  const el = document.getElementById("farmError");
+  if (el) el.textContent = msg || "";
+}
+
+function saveFarm() {
+  showFarmError("");
+
+  const name = (document.getElementById("farmNameInput")?.value || "").trim();
+
+  if (!name) return showFarmError("Farm name is required.");
+  if (!calibImgDataURL) return showFarmError("Please upload a farm image.");
+  if (!calibPoints || calibPoints.length < 2) return showFarmError("Add at least 2 calibration points.");
+
+  // Ensure all points have lat/lon
+  for (let i = 0; i < calibPoints.length; i++) {
+    const p = calibPoints[i];
+    const lat = Number(String(p.lat).trim());
+    const lon = Number(String(p.lon).trim());
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return showFarmError(`Enter valid lat/lon for Point #${i + 1}.`);
+    }
+  }
+
+  // Save a clean object
+  const farmObj = {
+    name,
+    imageDataURL: calibImgDataURL,
+    points: calibPoints.map(p => ({
+      x: Number(p.x),
+      y: Number(p.y),
+      lat: Number(p.lat),
+      lon: Number(p.lon),
+    })),
+    createdAt: new Date().toISOString(),
+  };
+
+  upsertFarm(farmObj);
+  renderFarmMenu();
+
+  setFarmLabel(name);
+  log(`[OK] Farm saved: ${name} (${farmObj.points.length} points)`);
+
+  closeFarmModal();
+}
+
+/* ================= LOAD FARM BACK INTO MODAL/UI ================= */
+function loadFarmIntoUI(name) {
+  const farms = loadFarms();
+  const farm = farms.find(f => f.name === name);
+  if (!farm) return;
+
+  // Load image into canvas
+  calibImgDataURL = farm.imageDataURL;
+
+  const img = new Image();
+  img.onload = () => {
+  calibImg = img;
+  if (overlayHint) overlayHint.style.display = "none";
+
+  calibPoints = (farm.points || []).map(p => ({
+    x: Number(p.x), y: Number(p.y), lat: Number(p.lat), lon: Number(p.lon)
+  }));
+
+  fitCanvasToWrap(img);
+  renderPointsList();
+  redrawAll();
+
+  showFarmOnMainMap(farm.imageDataURL); // ✅ ADD THIS
+
+  log(`[OK] Farm loaded: ${farm.name}`);
+};
+
+  img.src = calibImgDataURL;
+}
+
+/* ================= INITIALIZE ================= */
+renderFarmMenu();
+
+function showFarmOnMainMap(imageDataURL) {
+  const img = document.getElementById("farmMapImg");
+  const hint = document.getElementById("mapEmptyHint");
+  if (!img || !hint) return;
+
+  if (!imageDataURL) {
+    img.classList.add("hidden");
+    hint.classList.remove("hidden");
+    return;
+  }
+
+  img.onload = () => {
+  onMapImageReady();
+  };
+
+  img.src = imageDataURL;
+  img.classList.remove("hidden");
+  hint.classList.add("hidden");
+}
+
+/* ================= MAP PAN + ZOOM ================= */
+let mapState = { scale: 1, tx: 0, ty: 0 };
+let mapDrag = { active: false, startX: 0, startY: 0, startTx: 0, startTy: 0 };
+
+const mapViewport = document.getElementById("mapStage");
+const farmMapImgEl = document.getElementById("farmMapImg");
+
+function applyMapTransform() {
+  if (!farmMapImgEl) return;
+  // Center at 50%/50%, then translate, then scale
+  farmMapImgEl.style.transform =
+    `translate(${mapState.tx}px, ${mapState.ty}px) scale(${mapState.scale}) translate(-50%, -50%)`;
+}
+
+function resetMapViewFit() {
+  // simple “fit-ish”: start centered at scale=1
+  // (If you want true fit-to-panel based on image size, we can compute it next.)
+  mapState = { scale: 1, tx: 0, ty: 0 };
+  applyMapTransform();
+}
+
+if (mapViewport) {
+  mapViewport.addEventListener("mousedown", (e) => {
+    if (!farmMapImgEl || farmMapImgEl.classList.contains("hidden")) return;
+    mapDrag.active = true;
+    mapViewport.classList.add("dragging");
+    mapDrag.startX = e.clientX;
+    mapDrag.startY = e.clientY;
+    mapDrag.startTx = mapState.tx;
+    mapDrag.startTy = mapState.ty;
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!mapDrag.active) return;
+    const dx = e.clientX - mapDrag.startX;
+    const dy = e.clientY - mapDrag.startY;
+    mapState.tx = mapDrag.startTx + dx;
+    mapState.ty = mapDrag.startTy + dy;
+    applyMapTransform();
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (!mapDrag.active) return;
+    mapDrag.active = false;
+    mapViewport.classList.remove("dragging");
+  });
+
+  // Optional zoom with wheel (Ctrl not required)
+  mapViewport.addEventListener("wheel", (e) => {
+    if (!farmMapImgEl || farmMapImgEl.classList.contains("hidden")) return;
+    e.preventDefault();
+
+    const factor = (e.deltaY < 0) ? 1.08 : 0.92;
+    const next = Math.min(6, Math.max(0.2, mapState.scale * factor));
+    mapState.scale = next;
+    applyMapTransform();
+  }, { passive: false });
+}
+
+
+function sendCommand() {
+  const input = document.getElementById("terminalInput");
+  const cmd = input.value.trim();
+  if (!cmd) return;
+
+  log(`> ${cmd}`);
+
+  handleCommand(cmd);
+  input.value = "";
+}
+
+function handleCommand(cmd) {
+  switch (cmd.toLowerCase()) {
+    case "/fit":
+    case "/reset":
+      resetMapViewFit();
+      log("[OK] Map view reset (fit)");
+      break;
+
+    case "/help":
+      log("Available commands:");
+      log("  /reset OR /fit    - Reset & center farm map");
+      log("  /help   - Show this help");
+      break;
+
+    default:
+      log(`[ERR] Unknown command: ${cmd}`);
+  }
+}
+
+document.getElementById("terminalInput")
+  .addEventListener("keydown", e => {
+    if (e.key === "Enter") sendCommand();
+  });
+
+
+// VISIALIZATION
+/* ================= SCENARIO REPLAY (JSON + JSONL) ================= */
+
+function setSourceLabel(text){
+  document.getElementById("sourceLabel").textContent = text;
+  log(`[INFO] Source: ${text}`);
+}
+
+/* Replay */
+function openScenarioFile(){
+  document.getElementById("scenarioFileInput").click();
+}
+
+document.getElementById("scenarioFileInput").addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const parsed = parseScenarioText(text, file.name);
+
+    if (!parsed.ok) {
+      scenario = { name: null, events: [] };
+      scenarioLoaded = false;
+      document.getElementById("sourceStatusItem").textContent = "Parse failed";
+      log(`[ERR] Scenario parse failed: ${parsed.error}`);
+      e.target.value = "";
+      return;
+    }
+
+    scenario = { name: parsed.name, events: parsed.events };
+    scenarioLoaded = scenario.events.length > 0;
+
+    setSourceLabel(`Replay: ${scenario.name}`);
+    document.getElementById("sourceStatusItem").textContent =
+      scenarioLoaded ? `Loaded (${scenario.events.length} events)` : "Loaded (0 events)";
+
+    log(`[OK] Scenario loaded: ${scenario.name} (${scenario.events.length} events)`);
+  } catch (err) {
+    scenarioLoaded = false;
+    scenario = { name: null, events: [] };
+    document.getElementById("sourceStatusItem").textContent = "Load error";
+    log(`[ERR] Failed reading file: ${err?.message || err}`);
+  } finally {
+    e.target.value = "";
+  }
+});
+
+function parseScenarioText(text, fallbackName="scenario") {
+  // Try JSON
+  try {
+    const obj = JSON.parse(text);
+    if (Array.isArray(obj)) return { ok: true, name: fallbackName, events: obj };
+    if (obj && Array.isArray(obj.events)) return { ok: true, name: obj.name || fallbackName, events: obj.events };
+  } catch {}
+
+  // Try JSONL
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return { ok: false, error: "Empty file" };
+
+  const events = [];
+  for (let idx = 0; idx < lines.length; idx++) {
+    try { events.push(JSON.parse(lines[idx])); }
+    catch { return { ok: false, error: `Bad JSONL at line ${idx+1}` }; }
+  }
+  return { ok: true, name: fallbackName, events };
+}
+
+/* Live */
+function openConnectModal(){
+  // placeholder for now
+  setSourceLabel("Live: (not connected)");
+  document.getElementById("sourceStatusItem").textContent = "Connect flow not implemented yet";
+}
+
+
+function openScenarioFile(){
+  document.getElementById("scenarioFileInput").click();
+}
+
+document.getElementById("scenarioFileInput").addEventListener("change", async (e)=>{
+  const file = e.target.files?.[0];
+  if(!file) return;
+
+  const text = await file.text();
+  const parsed = parseScenarioText(text);
+
+  if(!parsed.ok){
+    log(`[ERR] Scenario parse failed: ${parsed.error}`);
+    e.target.value = "";
+    return;
+  }
+
+  scenario.name = parsed.name || file.name;
+  scenario.events = parsed.events.sort((a,b)=>(a.t??0)-(b.t??0));
+  scenario.idx = 0;
+  scenario.playing = false;
+
+  document.getElementById("sourceLabel").innerText = `Replay: ${scenario.name}`;
+  log(`[OK] Loaded scenario: ${scenario.name} (${scenario.events.length} events)`);
+
+  // show first location if exists
+  const first = scenario.events.find(ev => ev.lat != null && ev.lon != null);
+  if(first) applyTelemetry(first);
+
+  e.target.value = "";
+});
+
+
+function parseScenarioText(text){
+  // Try JSON first
+  try{
+    const obj = JSON.parse(text);
+
+    // Case 1: {name, events:[...]}
+    if(obj && Array.isArray(obj.events)){
+      return { ok:true, name: obj.name || "scenario", events: obj.events };
+    }
+
+    // Case 2: [ ...events ]
+    if(Array.isArray(obj)){
+      return { ok:true, name: "scenario", events: obj };
+    }
+  }catch{}
+
+  // Try JSONL
+  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const events = [];
+  for(const line of lines){
+    try{ events.push(JSON.parse(line)); }
+    catch{ return { ok:false, error:`Bad JSONL line: ${line.slice(0,60)}...` }; }
+  }
+  if(events.length) return { ok:true, name:"scenario", events };
+
+  return { ok:false, error:"Unrecognized format. Use JSONL or JSON." };
+}
+
+/* ===== Playback controls ===== */
+function startScenario(){
+  if(!scenario.events.length){
+    log("[ERR] No scenario loaded. Use Source → Load scenario…");
+    return;
+  }
+  if(scenario.playing) return;
+
+  scenario.playing = true;
+  scenario.startPerf = performance.now();
+  log("[INFO] Scenario started");
+  tickScenario();
+}
+
+function pauseScenario(){
+  if(!scenario.playing) return;
+  scenario.playing = false;
+  if(scenario.raf) cancelAnimationFrame(scenario.raf);
+  scenario.raf = null;
+  log("[INFO] Scenario paused");
+}
+
+function stopScenario(){
+  scenario.playing = false;
+  if(scenario.raf) cancelAnimationFrame(scenario.raf);
+  scenario.raf = null;
+  scenario.idx = 0;
+  log("[INFO] Scenario stopped (rewind)");
+  const first = scenario.events.find(ev => ev.lat != null && ev.lon != null);
+  if(first) applyTelemetry(first);
+}
+
+function tickScenario(){
+  if(!scenario.playing) return;
+
+  const t = (performance.now() - scenario.startPerf) / 1000;
+
+  while(scenario.idx < scenario.events.length && (scenario.events[scenario.idx].t ?? 0) <= t){
+    applyTelemetry(scenario.events[scenario.idx]);
+    scenario.idx++;
+  }
+
+  if(scenario.idx >= scenario.events.length){
+    scenario.playing = false;
+    log("[OK] Scenario finished");
+    return;
+  }
+
+  scenario.raf = requestAnimationFrame(tickScenario);
+}
+
+/* ===== Apply telemetry event ===== */
+function applyTelemetry(ev){
+  if(ev.alert){
+    log(`[${(ev.level||"info").toUpperCase()}] ALERT: ${ev.alert}${ev.note?(" — "+ev.note):""}`);
+  }
+  if(ev.state){
+    log(`[STATE] ${ev.state}${ev.note?(" — "+ev.note):""}`);
+  }
+  if(ev.lat != null && ev.lon != null){
+    log(`[GPS] lat=${ev.lat}, lon=${ev.lon}`);
+    moveDroneDotCenter(); // TEMP until mapping
+  }
+}
+
+/* ===== Temporary placement ===== */
+function moveDroneDotCenter(){
+  const dot = document.getElementById("droneDot");
+  const stage = document.getElementById("mapStage");
+  if(!dot || !stage) return;
+
+  dot.classList.remove("hidden");
+  dot.style.left = (stage.clientWidth / 2) + "px";
+  dot.style.top  = (stage.clientHeight / 2) + "px";
+}
+
+function startScenario() {
+  if (!scenarioLoaded) {
+    log("[ERR] No scenario loaded. Use Source → Load scenario…");
+    return;
+  }
+  if (playback.running && playback.paused) {
+    playback.paused = false;
+    log("[INFO] Resumed.");
+    tickPlayback();
+    return;
+  }
+  if (playback.running) return;
+
+  playback.running = true;
+  playback.paused = false;
+  playback.i = 0;
+  log(`[INFO] Starting scenario: ${scenario.name}`);
+  tickPlayback();
+}
+
+function pauseScenario() {
+  if (!playback.running) return;
+  playback.paused = true;
+  if (playback.timer) clearTimeout(playback.timer);
+  playback.timer = null;
+  log("[INFO] Paused.");
+}
+
+function stopScenario() {
+  playback.running = false;
+  playback.paused = false;
+  playback.i = 0;
+  if (playback.timer) clearTimeout(playback.timer);
+  playback.timer = null;
+  log("[INFO] Stopped.");
+}
+
+function tickPlayback() {
+  if (!playback.running || playback.paused) return;
+
+  if (playback.i >= scenario.events.length) {
+    log("[OK] Scenario finished.");
+    stopScenario();
+    return;
+  }
+  
+  if (ev.lat != null && ev.lon != null) {
+  setDroneTargetFromGps(Number(ev.lat), Number(ev.lon));
+  ensureDroneAnim();
+}
+
+  // For now: just show it in terminal so we know it works
+  log(`[EV] ${JSON.stringify(ev)}`);
+
+  playback.timer = setTimeout(tickPlayback, 200); // speed for now
+}
+
+function resizeMapOverlay(){
+  const r = mapStage.getBoundingClientRect();
+  mapCanvas.width = Math.round(r.width);
+  mapCanvas.height = Math.round(r.height);
+  drawMapOverlay(); // redraw drone after resize
+}
+
+window.addEventListener("resize", resizeMapOverlay);
+
+function coverTransform(imgW, imgH, boxW, boxH){
+  const scale = Math.max(boxW / imgW, boxH / imgH);
+  const dispW = imgW * scale;
+  const dispH = imgH * scale;
+  const offsetX = (boxW - dispW) / 2;
+  const offsetY = (boxH - dispH) / 2;
+  return { scale, offsetX, offsetY, dispW, dispH };
+}
+
+function imgPxToStagePx(ix, iy){
+  if (!mapImgEl.naturalWidth) return { x: 0, y: 0 };
+  const t = coverTransform(
+    mapImgEl.naturalWidth,
+    mapImgEl.naturalHeight,
+    mapCanvas.width,
+    mapCanvas.height
+  );
+  return {
+    x: t.offsetX + ix * t.scale,
+    y: t.offsetY + iy * t.scale
+  };
+}
+
+function gpsToImgPx(lat, lon, farmObj){
+  const pts = farmObj?.calibPoints || farmObj?.points || farmObj?.calibrationPoints || [];
+  if (pts.length < 2) return null;
+
+  // choose two points (0 and last) for now
+  const pA = pts[0];
+  const pB = pts[pts.length - 1];
+
+  const dLat = (pB.lat - pA.lat);
+  const dLon = (pB.lon - pA.lon);
+
+  if (Math.abs(dLat) < 1e-12 || Math.abs(dLon) < 1e-12) return null;
+
+  // linear mapping (no rotation)
+  const u = (lon - pA.lon) / dLon; // 0..1 along lon
+  const v = (lat - pA.lat) / dLat; // 0..1 along lat
+
+  const x = pA.x + u * (pB.x - pA.x);
+  const y = pA.y + v * (pB.y - pA.y);
+
+  return { x, y };
+}
+
+
+function drawMapOverlay(){
+  mapCtx.clearRect(0,0,mapCanvas.width,mapCanvas.height);
+
+  if (drone.stageX == null) return;
+
+  // draw a simple drone marker (dot + heading placeholder)
+  mapCtx.beginPath();
+  mapCtx.arc(drone.stageX, drone.stageY, 6, 0, Math.PI * 2);
+  mapCtx.fillStyle = "rgba(0,255,255,0.95)";
+  mapCtx.fill();
+
+  mapCtx.strokeStyle = "rgba(0,0,0,0.75)";
+  mapCtx.lineWidth = 2;
+  mapCtx.stroke();
+}
+
+let animReq = null;
+
+function setDroneTargetFromGps(lat, lon){
+  const farmObj = getActiveFarmObj(); // you must have this; if not, see below
+  if (!farmObj) return;
+
+  const imgPx = gpsToImgPx(lat, lon, farmObj);
+  if (!imgPx) return;
+
+  const stagePx = imgPxToStagePx(imgPx.x, imgPx.y);
+  drone.targetX = stagePx.x;
+  drone.targetY = stagePx.y;
+
+  if (drone.stageX == null) {
+    drone.stageX = stagePx.x;
+    drone.stageY = stagePx.y;
+  }
+}
+
+function stepDrone(){
+  if (drone.stageX == null || drone.targetX == null) {
+    drawMapOverlay();
+    animReq = requestAnimationFrame(stepDrone);
+    return;
+  }
+  const speed = 0.12; 
+  drone.stageX += (drone.targetX - drone.stageX) * speed;
+  drone.stageY += (drone.targetY - drone.stageY) * speed;
+
+  drawMapOverlay();
+  animReq = requestAnimationFrame(stepDrone);
+}
+
+function ensureAnimation(){
+  if (animReq) return;
+  animReq = requestAnimationFrame(stepDrone);
+}
+
+const ev = scenario.events[playback.i++];
+
+if (ev.lat != null && ev.lon != null) {
+  setDroneTargetFromGps(Number(ev.lat), Number(ev.lon));
+}
+
+// (optional) log once every N events to avoid spam
+if (playback.i % 5 === 0) log(`[EV] i=${playback.i}/${scenario.events.length} lat=${ev.lat} lon=${ev.lon}`);
+
+
+/* ================= MAP + DRONE OVERLAY (CLEAN) ================= */
+
+// MUST match your actual farm storage key above
+
+function loadFarms(){
+  try { return JSON.parse(localStorage.getItem(FARM_KEY) || "[]"); }
+  catch { return []; }
+}
+
+function getActiveFarmName(){
+  return document.getElementById("farmLabel")?.textContent?.trim() || "";
+}
+
+function getActiveFarmObj(){
+  const name = getActiveFarmName();
+  return loadFarms().find(f => f.name === name) || null;
+}
+
+const mapStage  = document.getElementById("mapStage");
+const mapImgEl  = document.getElementById("farmMapImg");
+const mapCanvas = document.getElementById("mapOverlay");
+const mapCtx    = mapCanvas.getContext("2d");
+
+let drone = {
+  x: null, y: null,           // current stage px
+  tx: null, ty: null           // target stage px
+};
+
+function resizeMapOverlay(){
+  if (!mapStage || !mapCanvas) return;
+  const r = mapStage.getBoundingClientRect();
+  mapCanvas.width  = Math.max(1, Math.round(r.width));
+  mapCanvas.height = Math.max(1, Math.round(r.height));
+  drawMapOverlay();
+}
+
+window.addEventListener("resize", resizeMapOverlay);
+
+// How object-fit:cover maps image pixels → stage pixels
+function coverTransform(imgW, imgH, boxW, boxH){
+  const s = Math.max(boxW / imgW, boxH / imgH);
+  const dispW = imgW * s;
+  const dispH = imgH * s;
+  const ox = (boxW - dispW) / 2;
+  const oy = (boxH - dispH) / 2;
+  return { s, ox, oy };
+}
+
+function imgPxToStagePx(ix, iy){
+  if (!mapImgEl?.naturalWidth || !mapCanvas?.width) return { x: 0, y: 0 };
+  const t = coverTransform(
+    mapImgEl.naturalWidth, mapImgEl.naturalHeight,
+    mapCanvas.width, mapCanvas.height
+  );
+  return { x: t.ox + ix * t.s, y: t.oy + iy * t.s };
+}
+
+/* Simple linear GPS mapping using your first+last calibration points.
+   (Enough for demo replay; we can upgrade later to full affine/homography.) */
+function gpsToImgPx(lat, lon, farmObj){
+  const pts = farmObj?.points || [];
+  if (pts.length < 2) return null;
+
+  const A = pts[0];
+  const B = pts[pts.length - 1];
+
+  const dLat = (B.lat - A.lat);
+  const dLon = (B.lon - A.lon);
+  if (Math.abs(dLat) < 1e-12 || Math.abs(dLon) < 1e-12) return null;
+
+  const u = (lon - A.lon) / dLon;   // 0..1 along lon
+  const v = (lat - A.lat) / dLat;   // 0..1 along lat
+
+  const x = A.x + u * (B.x - A.x);
+  const y = A.y + v * (B.y - A.y);
+  return { x, y };
+}
+
+function setDroneTargetFromGps(lat, lon){
+  const farmObj = getActiveFarmObj();
+  if (!farmObj) return;
+
+  const imgPx = gpsToImgPx(lat, lon, farmObj);
+  if (!imgPx) return;
+
+  const st = imgPxToStagePx(imgPx.x, imgPx.y);
+  drone.tx = st.x;
+  drone.ty = st.y;
+
+  if (drone.x == null) { // first time
+    drone.x = st.x;
+    drone.y = st.y;
+  }
+}
+
+function drawMapOverlay(){
+  if (!mapCtx) return;
+  mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+
+  if (drone.x == null) return;
+
+  // Dot
+  mapCtx.beginPath();
+  mapCtx.arc(drone.x, drone.y, 7, 0, Math.PI * 2);
+  mapCtx.fillStyle = "rgba(0,255,255,0.95)";
+  mapCtx.fill();
+
+  mapCtx.lineWidth = 2;
+  mapCtx.strokeStyle = "rgba(0,0,0,0.75)";
+  mapCtx.stroke();
+}
+
+function stepDrone(){
+  // smooth follow
+  if (drone.tx != null) {
+    const k = 0.14; // smoothing
+    drone.x += (drone.tx - drone.x) * k;
+    drone.y += (drone.ty - drone.y) * k;
+  }
+  drawMapOverlay();
+  animReq = requestAnimationFrame(stepDrone);
+}
+
+function ensureDroneAnim(){
+  if (animReq) return;
+  animReq = requestAnimationFrame(stepDrone);
+}
+
+/* Call this when a farm image is shown/loaded */
+function onMapImageReady(){
+  resizeMapOverlay();
+  ensureDroneAnim();
+}
+
+
+</script>
+
+</body>
+</html>

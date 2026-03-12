@@ -1,0 +1,15 @@
+{"t":0, "lat":25.123400, "lon":51.234500, "state":"IDLE"}
+{"t":1, "lat":25.123410, "lon":51.234510, "state":"MOVE"}
+{"t":2, "lat":25.123430, "lon":51.234530, "state":"MOVE"}
+{"t":3, "alert":"LOW_BATTERY", "level":"warn"}
+{"t":4, "lat":25.123460, "lon":51.234560, "state":"MOVE"}
+{"t":5, "state":"SPRAY", "note":"pollinating tree #12"}
+
+
+time
+lat
+lon
+amp
+vitals... ()
+state/operation 
+lidar (angle, dist) - hidden
